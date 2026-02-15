@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Minimal middleware to bypass any complex dependency resolution issues on Vercel Edge Runtime
 export function middleware(request: NextRequest) {
-    return NextResponse.next()
+    try {
+        // Basic response to ensure middleware is working
+        return NextResponse.next()
+    } catch (error) {
+        console.error('Middleware execution failed:', error)
+        return NextResponse.next()
+    }
 }
 
+// Simplified matcher to avoid potential regex issues in Edge Runtime
 export const config = {
     matcher: [
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!api|_next/static|_next/image|favicon.ico).*)',
     ],
 }
