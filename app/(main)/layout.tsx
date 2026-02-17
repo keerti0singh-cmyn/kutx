@@ -23,35 +23,22 @@ export default function MainLayout({
     const unreadCount = notifications.filter(n => !n.is_read).length
 
     useEffect(() => {
-        // Get authenticated user and profile
-        const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                setUser(user)
-
-                // Fetch profile
-                const { data: profile } = await supabase
+        const init = async () => {
+            const { data: { user: authUser } } = await supabase.auth.getUser()
+            if (authUser) {
+                setUser(authUser)
+                const { data: profileData } = await supabase
                     .from('profiles')
                     .select('*')
-                    .eq('user_id', user.id)
+                    .eq('user_id', authUser.id)
                     .single()
-
-                if (profile) {
-                    setProfile(profile)
-
-                    // Set online status
-                    await supabase
-                        .from('profiles')
-                        .update({ status: 'online', last_seen_at: new Date().toISOString() })
-                        .eq('user_id', user.id)
-                }
+                if (profileData) setProfile(profileData)
             }
             setLoading(false)
         }
 
-        getUser()
+        init()
 
-        // Fetch notifications
         const fetchNotifications = async () => {
             if (!user) return
             const { data } = await supabase
@@ -65,7 +52,6 @@ export default function MainLayout({
 
         fetchNotifications()
 
-        // Subscribe to notifications
         const notifChannel = supabase
             .channel('public:notifications')
             .on(
@@ -82,37 +68,8 @@ export default function MainLayout({
             )
             .subscribe()
 
-        // Handle visibility change for online/offline status
-        const handleVisibilityChange = async () => {
-            if (user) {
-                if (document.hidden) {
-                    // Set offline when tab is not visible
-                    await supabase
-                        .from('profiles')
-                        .update({ status: 'offline', last_seen_at: new Date().toISOString() })
-                        .eq('user_id', user.id)
-                } else {
-                    // Set online when tab becomes visible
-                    await supabase
-                        .from('profiles')
-                        .update({ status: 'online', last_seen_at: new Date().toISOString() })
-                        .eq('user_id', user.id)
-                }
-            }
-        }
-
-        document.addEventListener('visibilitychange', handleVisibilityChange)
-
         return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange)
             supabase.removeChannel(notifChannel)
-            // Set offline on unmount
-            if (user) {
-                supabase
-                    .from('profiles')
-                    .update({ status: 'offline', last_seen_at: new Date().toISOString() })
-                    .eq('user_id', user.id)
-            }
         }
     }, [supabase, setUser, setProfile, user])
 

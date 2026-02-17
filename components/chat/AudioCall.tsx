@@ -9,10 +9,12 @@ interface AudioCallProps {
     otherUser: any
     channel: any
     onClose: () => void
+    callId?: string // Added for incoming calls
 }
 
-export default function AudioCall({ user, otherUser, channel, onClose }: AudioCallProps) {
+export default function AudioCall({ user, otherUser, channel, onClose, callId: initialCallId }: AudioCallProps) {
     const supabase = createClient() as any
+    const [callId, setCallId] = useState<string | null>(initialCallId || null)
     const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'incoming' | 'active'>('idle')
     const [isMuted, setIsMuted] = useState(false)
     const [timer, setTimer] = useState(0)
@@ -131,23 +133,51 @@ export default function AudioCall({ user, otherUser, channel, onClose }: AudioCa
         await pc.current?.addIceCandidate(new RTCIceCandidate(candidate))
     }
 
-    const handleStartCall = () => {
+    const handleStartCall = async () => {
         setCallStatus('calling')
+
+        // Insert into active_calls table
+        const { data, error } = await supabase
+            .from('active_calls')
+            .insert({
+                caller_id: user.id,
+                receiver_id: otherUser.user_id || otherUser.id,
+                status: 'ringing'
+            })
+            .select()
+            .single()
+
+        if (error) {
+            console.error('Failed to initiate call', error)
+            handleEndCall(false)
+            return
+        }
+
+        setCallId(data.id)
         sendSignal('request')
     }
 
-    const handleAcceptCall = () => {
+    const handleAcceptCall = async () => {
+        if (callId) {
+            await supabase.from('active_calls').update({ status: 'accepted' }).eq('id', callId)
+        }
         sendSignal('accept')
         startPeerConnection(false)
     }
 
-    const handleRejectCall = () => {
+    const handleRejectCall = async () => {
+        if (callId) {
+            await supabase.from('active_calls').update({ status: 'rejected', ended_at: new Date().toISOString() }).eq('id', callId)
+        }
         sendSignal('reject')
         handleEndCall(true)
     }
 
-    const handleEndCall = (notify: boolean) => {
+    const handleEndCall = async (notify: boolean) => {
         if (notify) sendSignal('end')
+        if (callId) {
+            await supabase.from('active_calls').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', callId)
+        }
 
         pc.current?.close()
         pc.current = null
@@ -166,10 +196,38 @@ export default function AudioCall({ user, otherUser, channel, onClose }: AudioCa
         }
     }
 
-    // Auto-initiate call if opened as caller
+    // Auto-initiate call if opened as caller and no initial callId
     useEffect(() => {
-        if (callStatus === 'idle') handleStartCall()
-    }, [])
+        if (initialCallId) {
+            setCallStatus('incoming')
+        } else if (callStatus === 'idle') {
+            handleStartCall()
+        }
+    }, [initialCallId])
+
+    // Listen to call table changes for synchronization
+    useEffect(() => {
+        if (!callId) return
+
+        const callSub = supabase
+            .channel(`call-status-${callId}`)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'active_calls',
+                filter: `id=eq.${callId}`
+            }, (payload: any) => {
+                const status = payload.new.status
+                if (status === 'accepted') {
+                    if (callStatus === 'calling') startPeerConnection(true)
+                } else if (status === 'rejected' || status === 'ended') {
+                    handleEndCall(false)
+                }
+            })
+            .subscribe()
+
+        return () => { supabase.removeChannel(callSub) }
+    }, [callId, callStatus])
 
     return (
         <div className="fixed inset-0 bg-black/95 z-[100] flex flex-col items-center justify-center p-6 backdrop-blur-sm animate-in fade-in zoom-in duration-300">

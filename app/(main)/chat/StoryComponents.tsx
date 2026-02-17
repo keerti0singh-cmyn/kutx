@@ -27,6 +27,7 @@ export function StoryUpload({ userId, onClose, onSuccess }: StoryUploadProps) {
     const [bgStyle, setBgStyle] = useState('bg-gradient-to-br from-purple-600 to-blue-500')
     const [isDragging, setIsDragging] = useState(false)
     const [showTextControls, setShowTextControls] = useState(true)
+    const [editorMode, setEditorMode] = useState<'choose' | 'edit'>('choose')
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selected = e.target.files?.[0]
@@ -46,6 +47,7 @@ export function StoryUpload({ userId, onClose, onSuccess }: StoryUploadProps) {
 
             setFile(selected)
             setPreview(URL.createObjectURL(selected))
+            setEditorMode('edit')
         }
     }
 
@@ -138,7 +140,7 @@ export function StoryUpload({ userId, onClose, onSuccess }: StoryUploadProps) {
                 <div className="p-4 md:p-6">
                     <h2 className="text-xl font-bold mb-4">Post a Story</h2>
 
-                    {!preview && !textOverlay ? (
+                    {editorMode === 'choose' ? (
                         <div className="space-y-4">
                             <label className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 md:p-12 flex flex-col items-center gap-4 cursor-pointer hover:border-primary transition">
                                 <Upload className="w-10 h-10 md:w-12 md:h-12 text-gray-400" />
@@ -151,7 +153,10 @@ export function StoryUpload({ userId, onClose, onSuccess }: StoryUploadProps) {
                                 <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
                             </div>
                             <button
-                                onClick={() => setTextOverlay('Type something...')}
+                                onClick={() => {
+                                    setTextOverlay('Type something...')
+                                    setEditorMode('edit')
+                                }}
                                 className="w-full py-3 border-2 border-primary text-primary rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary/5 transition"
                             >
                                 <Type className="w-5 h-5" />

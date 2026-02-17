@@ -33,7 +33,7 @@ export default function SignupPage() {
             const { data, error } = await supabase
                 .from('profiles')
                 .select('username')
-                .eq('username', username)
+                .ilike('username', username) // Use ILIKE for case-insensitive check
                 .maybeSingle()
 
             setCheckingUsername(false)
@@ -106,11 +106,12 @@ export default function SignupPage() {
         })
 
         if (authError) {
-            // Check for duplicate email error
-            if (authError.message.toLowerCase().includes('already registered') ||
-                authError.message.toLowerCase().includes('already exists') ||
-                authError.status === 422 || authError.status === 400) {
-                setEmailError('Email already registered. Please login.')
+            const msg = authError.message.toLowerCase()
+            if (msg.includes('already registered') ||
+                msg.includes('already exists') ||
+                msg.includes('unique constraint') ||
+                authError.status === 422) {
+                setEmailError('This email is already registered. Please login.')
             } else {
                 setError(authError.message)
             }
@@ -193,7 +194,7 @@ export default function SignupPage() {
                             }}
                             required
                             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none dark:bg-gray-700 dark:border-gray-600 transition-all ${emailError ? 'border-red-500 ring-1 ring-red-500' :
-                                    isEmailAvailable === true ? 'border-green-500' : ''
+                                isEmailAvailable === true ? 'border-green-500' : ''
                                 }`}
                             placeholder="you@example.com"
                         />
