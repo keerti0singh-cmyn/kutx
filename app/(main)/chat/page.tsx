@@ -159,12 +159,12 @@ export default function ChatPage() {
     return (
         <div className="h-full flex">
             {/* Conversations list */}
-            <div className="w-full md:w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
+            <div className="w-full md:w-80 glass border-r border-gray-200 dark:border-gray-700 flex flex-col h-full z-10">
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                     <h1 className="text-2xl font-bold mb-4">Chats</h1>
 
                     {/* Stories Tray */}
-                    <div className="flex gap-4 overflow-x-auto pb-4 mb-4 scrollbar-hide no-scrollbar">
+                    <div className="flex gap-4 overflow-x-auto pb-4 mb-4 scrollbar-hide no-scrollbar scroll-smooth">
                         <button
                             onClick={() => setIsUploadOpen(true)}
                             className="flex-shrink-0 flex flex-col items-center gap-1 group"

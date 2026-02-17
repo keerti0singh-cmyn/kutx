@@ -158,33 +158,69 @@ export default function ChatWithUserPage() {
         e.preventDefault()
         if (!newMessage.trim() || !user || sending) return
 
-        // Basic check - friendProfile status might be updated via context or we could re-check blocks table
-        // For MVP, we'll assume if they can see the page, we'll just handle the insert error if RLS exists
-        // but adding a client-side check for better UX
-
-        setSending(true)
         const messageContent = newMessage.trim()
         setNewMessage('')
 
-        const { data, error } = await supabase
-            .from('messages')
-            .insert({
-                sender_id: user.id,
-                receiver_id: friendId,
-                content: messageContent,
-                message_type: 'text',
-                status: 'sent'
-            })
-            .select()
-            .single()
-
-        if (error) {
-            console.error('Error sending message:', error)
-            alert('Failed to send message. You might be blocked or have connection issues.')
-        } else if (data) {
-            setMessages(prev => [...prev, data])
+        // Add pending message to UI immediately for better UX
+        const tempId = `temp-${Date.now()}`
+        const pendingMsg: Message = {
+            id: tempId,
+            content: messageContent,
+            sender_id: user.id,
+            receiver_id: friendId,
+            message_type: 'text',
+            status: 'sent', // UI will show as 'sending' if we add a local flag, or just use 'sent' as a placeholder
+            created_at: new Date().toISOString(),
+            delivered_at: null,
+            edited_at: null,
+            file_id: null,
+            is_deleted: false,
+            read_at: null,
+            file_url: null,
+            file_size: null
         }
-        setSending(false)
+
+        setMessages(prev => [...prev, pendingMsg])
+        setSending(true)
+
+        const maxRetries = 3
+        let retryCount = 0
+        let success = false
+
+        const attemptSend = async () => {
+            const { data, error } = await supabase
+                .from('messages')
+                .insert({
+                    sender_id: user.id,
+                    receiver_id: friendId,
+                    content: messageContent,
+                    message_type: 'text',
+                    status: 'sent'
+                })
+                .select()
+                .single()
+
+            if (error) {
+                console.error(`Attempt ${retryCount + 1} failed:`, error)
+                if (retryCount < maxRetries) {
+                    retryCount++
+                    const delay = Math.pow(2, retryCount) * 1000
+                    setTimeout(attemptSend, delay)
+                } else {
+                    setSending(false)
+                    // Update the temp message to show failure
+                    setMessages(prev => prev.map(m => m.id === tempId ? { ...m, is_deleted: true } : m))
+                    alert('Failed to send message after multiple attempts. Please check your connection.')
+                }
+            } else if (data) {
+                // Replace temp message with actual data from DB
+                setMessages(prev => prev.map(m => m.id === tempId ? data : m))
+                setSending(false)
+                success = true
+            }
+        }
+
+        await attemptSend()
     }
 
     const handleSendFile = async (e: React.ChangeEvent<HTMLInputElement>) => {

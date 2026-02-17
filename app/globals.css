@@ -38,6 +38,23 @@
     .status-offline {
         @apply bg-offline;
     }
+
+    /* Premium UI Extensions */
+    .glass {
+        @apply bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-white/20 dark:border-gray-700/30;
+    }
+
+    .glass-dark {
+        @apply bg-black/40 backdrop-blur-lg border border-white/10;
+    }
+
+    .premium-gradient {
+        @apply bg-gradient-to-br from-primary via-blue-600 to-indigo-700;
+    }
+
+    .text-gradient {
+        @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-fuchsia-600;
+    }
 }
 
 /* Loading spinner animation */

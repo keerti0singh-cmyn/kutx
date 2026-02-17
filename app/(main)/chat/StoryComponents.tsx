@@ -98,6 +98,8 @@ export function StoryUpload({ userId, onClose, onSuccess }: StoryUploadProps) {
                 mediaType = file.type.startsWith('video/') ? 'video' : 'image'
             }
 
+            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+
             const { error: insertError } = await supabase
                 .from('stories')
                 .insert({
@@ -110,7 +112,8 @@ export function StoryUpload({ userId, onClose, onSuccess }: StoryUploadProps) {
                     text_position_y: textPos.y,
                     text_color: textColor,
                     font_style: fontStyle,
-                    background_style: bgStyle // Assuming we might want to store this, or just use text_overlay logic
+                    background_style: bgStyle,
+                    expires_at: expiresAt
                 })
 
             if (insertError) throw insertError
