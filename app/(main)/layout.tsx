@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/store/authStore'
 import { MessageSquare, Users, User as UserIcon, LogOut, Bell } from 'lucide-react'
 import Link from 'next/link'
+import LogoutConfirmationModal from '@/components/LogoutConfirmationModal'
 
 export default function MainLayout({
     children,
@@ -18,6 +19,7 @@ export default function MainLayout({
     const [loading, setLoading] = useState(true)
     const [notifications, setNotifications] = useState<any[]>([])
     const [showNotifications, setShowNotifications] = useState(false)
+    const [showLogoutModal, setShowLogoutModal] = useState(false)
     const unreadCount = notifications.filter(n => !n.is_read).length
 
     useEffect(() => {
@@ -123,7 +125,7 @@ export default function MainLayout({
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
     }
 
-    const handleLogout = async () => {
+    const confirmLogout = async () => {
         if (user) {
             await supabase
                 .from('profiles')
@@ -133,6 +135,10 @@ export default function MainLayout({
         await supabase.auth.signOut()
         logout()
         router.push('/login')
+    }
+
+    const handleLogout = () => {
+        setShowLogoutModal(true)
     }
 
     if (loading) {
@@ -246,6 +252,13 @@ export default function MainLayout({
             <div className="flex-1 overflow-hidden order-1 md:order-2 pb-16 md:pb-0">
                 {children}
             </div>
+
+            {/* Logout Confirmation Modal */}
+            <LogoutConfirmationModal
+                isOpen={showLogoutModal}
+                onClose={() => setShowLogoutModal(false)}
+                onConfirm={confirmLogout}
+            />
         </div>
     )
 }

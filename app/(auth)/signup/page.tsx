@@ -10,6 +10,7 @@ export default function SignupPage() {
     const [password, setPassword] = useState('')
     const [username, setUsername] = useState('')
     const [error, setError] = useState<string | null>(null)
+    const [emailError, setEmailError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const router = useRouter()
     const supabase = createClient() as any
@@ -17,6 +18,7 @@ export default function SignupPage() {
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault()
         setError(null)
+        setEmailError(null)
         setLoading(true)
 
         // Validate password
@@ -59,7 +61,14 @@ export default function SignupPage() {
         })
 
         if (authError) {
-            setError(authError.message)
+            // Check for duplicate email error
+            if (authError.message.toLowerCase().includes('already registered') ||
+                authError.message.toLowerCase().includes('already exists') ||
+                authError.status === 422 || authError.status === 400) {
+                setEmailError('Email already registered. Please login.')
+            } else {
+                setError(authError.message)
+            }
             setLoading(false)
             return
         }
@@ -87,7 +96,7 @@ export default function SignupPage() {
             <h2 className="text-2xl font-bold mb-6 text-center">Create Account</h2>
 
             {error && (
-                <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded transition-all animate-in fade-in duration-300">
                     {error}
                 </div>
             )}
@@ -121,11 +130,19 @@ export default function SignupPage() {
                         type="email"
                         id="email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => {
+                            setEmail(e.target.value)
+                            if (emailError) setEmailError(null)
+                        }}
                         required
-                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none dark:bg-gray-700 dark:border-gray-600"
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none dark:bg-gray-700 dark:border-gray-600 ${emailError ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                         placeholder="you@example.com"
                     />
+                    {emailError && (
+                        <p className="text-xs text-red-500 mt-1 font-medium animate-in slide-in-from-top-1 duration-200">
+                            {emailError}
+                        </p>
+                    )}
                 </div>
 
                 <div>
@@ -150,7 +167,7 @@ export default function SignupPage() {
                 <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg shadow-primary/20"
                 >
                     {loading ? 'Creating Account...' : 'Sign Up'}
                 </button>
