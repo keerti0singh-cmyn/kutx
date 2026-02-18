@@ -136,12 +136,26 @@ export default function AudioCall({ user, otherUser, channel, onClose, callId: i
     const handleStartCall = async () => {
         setCallStatus('calling')
 
-        // Insert into active_calls table
+        // 1. Check if blocked
+        const otherUserId = otherUser.user_id || otherUser.id
+        const { data: isBlocked } = await supabase
+            .from('blocks')
+            .select('*')
+            .or(`and(blocker_id.eq.${user.id},blocked_id.eq.${otherUserId}),and(blocker_id.eq.${otherUserId},blocked_id.eq.${user.id})`)
+            .maybeSingle()
+
+        if (isBlocked) {
+            alert('You cannot call this user.')
+            handleEndCall(false)
+            return
+        }
+
+        // 2. Insert into active_calls table
         const { data, error } = await supabase
             .from('active_calls')
             .insert({
                 caller_id: user.id,
-                receiver_id: otherUser.user_id || otherUser.id,
+                receiver_id: otherUserId,
                 status: 'ringing'
             })
             .select()
@@ -149,6 +163,7 @@ export default function AudioCall({ user, otherUser, channel, onClose, callId: i
 
         if (error) {
             console.error('Failed to initiate call', error)
+            alert('Could not start call. Please try again.')
             handleEndCall(false)
             return
         }

@@ -12,6 +12,17 @@ export default function PresenceProvider({ children }: { children: React.ReactNo
     useEffect(() => {
         if (!user) return
 
+        const markOffline = async () => {
+            try {
+                await supabase
+                    .from('profiles')
+                    .update({ status: 'offline', last_seen_at: new Date().toISOString() })
+                    .eq('user_id', user.id)
+            } catch (err) {
+                console.error('Failed to mark offline', err)
+            }
+        }
+
         const sendHeartbeat = async () => {
             // throttle to prevent accidental double calls
             const now = Date.now()
@@ -20,6 +31,10 @@ export default function PresenceProvider({ children }: { children: React.ReactNo
 
             try {
                 await supabase.rpc('handle_user_heartbeat', { p_user_id: user.id })
+                // Trigger inactivity cleanup for other users occasionally
+                if (Math.random() < 0.1) {
+                    supabase.rpc('mark_inactive_users_offline')
+                }
             } catch (err) {
                 console.error('Presence heartheat failed', err)
             }
@@ -29,19 +44,36 @@ export default function PresenceProvider({ children }: { children: React.ReactNo
         sendHeartbeat()
 
         // 2. Refresh heartbeat every 45 seconds
-        // (mark_inactive_users_offline checks for 60s timeout)
         const interval = setInterval(sendHeartbeat, 45000)
 
         // 3. Tab close / visibility handling
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
                 sendHeartbeat()
+            } else {
+                // Optionally mark away, but user said "mark offline" if no activity
+                // Let's stick to heartbeats for 60s timeout
             }
         }
 
         const handleBeforeUnload = () => {
-            // Use RPC to ensure consistency
-            supabase.rpc('handle_user_heartbeat', { p_user_id: user.id })
+            // Navigator.sendBeacon could also be used for immediate offline update
+            const { url, key } = (supabase as any).supabaseUrl ? { url: (supabase as any).supabaseUrl, key: (supabase as any).supabaseKey } : { url: '', key: '' };
+            if (url && key) {
+                const body = JSON.stringify({ status: 'offline', last_seen_at: new Date().toISOString() });
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'apikey': key,
+                    'Authorization': `Bearer ${supabase.auth.session?.access_token || ''}`
+                };
+                // Fallback for immediate update on close
+                fetch(`${url}/rest/v1/profiles?user_id=eq.${user.id}`, {
+                    method: 'PATCH',
+                    headers,
+                    body,
+                    keepalive: true
+                });
+            }
         }
 
         window.addEventListener('visibilitychange', handleVisibilityChange)
@@ -51,6 +83,7 @@ export default function PresenceProvider({ children }: { children: React.ReactNo
             clearInterval(interval)
             window.removeEventListener('visibilitychange', handleVisibilityChange)
             window.removeEventListener('beforeunload', handleBeforeUnload)
+            markOffline()
         }
     }, [user, supabase])
 

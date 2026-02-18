@@ -309,13 +309,27 @@ export function StoryModal({ story, onClose, onViewed }: StoryModalProps) {
         if (!user || !story) return
 
         const recordView = async () => {
-            if (isOwner) return
-            await supabase
+            if (isOwner || !user) return
+
+            // Check if already viewed to prevent duplicate count inserts
+            const { data: existing } = await supabase
                 .from('story_views')
-                .insert({
-                    story_id: story.id,
-                    viewer_id: user.id
-                })
+                .select('id')
+                .eq('story_id', story.id)
+                .eq('viewer_id', user.id)
+                .maybeSingle()
+
+            if (!existing) {
+                await supabase
+                    .from('story_views')
+                    .insert({
+                        story_id: story.id,
+                        viewer_id: user.id
+                    })
+
+                // After recording view, if we are the owner, we might want to refresh?
+                // But wait, if we are the owner we don't record.
+            }
         }
 
         const fetchViewers = async () => {
@@ -424,8 +438,8 @@ export function StoryModal({ story, onClose, onViewed }: StoryModalProps) {
 
                 {/* Viewers List Drawer */}
                 {showViewers && (
-                    <div className="absolute inset-0 bg-black/90 z-30 animate-in slide-in-from-bottom flex flex-col">
-                        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                    <div className="absolute inset-x-0 bottom-0 top-0 sm:top-auto sm:h-3/4 bg-black/95 z-30 animate-in slide-in-from-bottom flex flex-col rounded-t-3xl border-t border-white/10 shadow-2xl">
+                        <div className="p-4 border-b border-white/10 flex items-center justify-between sticky top-0 bg-black/50 backdrop-blur-md rounded-t-3xl">
                             <h3 className="text-white font-bold flex items-center gap-2">
                                 <Eye className="w-5 h-5 text-primary" />
                                 Views ({viewers.length})

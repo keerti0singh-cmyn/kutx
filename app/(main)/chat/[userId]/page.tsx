@@ -188,6 +188,20 @@ export default function ChatWithUserPage() {
         let success = false
 
         const attemptSend = async () => {
+            // Check if blocked before sending
+            const { data: isBlocked } = await supabase
+                .from('blocks')
+                .select('*')
+                .or(`and(blocker_id.eq.${user.id},blocked_id.eq.${friendId}),and(blocker_id.eq.${friendId},blocked_id.eq.${user.id})`)
+                .maybeSingle()
+
+            if (isBlocked) {
+                alert('You cannot send messages to this user.')
+                setMessages(prev => prev.filter(m => m.id !== tempId))
+                setSending(false)
+                return
+            }
+
             const { data, error } = await supabase
                 .from('messages')
                 .insert({
@@ -199,6 +213,7 @@ export default function ChatWithUserPage() {
                 })
                 .select()
                 .single()
+            // ... existing error handling ...
 
             if (error) {
                 console.error(`Attempt ${retryCount + 1} failed:`, error)
@@ -414,11 +429,19 @@ export default function ChatWithUserPage() {
                                         <p className="whitespace-pre-wrap break-words">{message.content}</p>
                                     )}
                                     {message.sender_id === user?.id && (
-                                        <div className="flex justify-end mt-1">
+                                        <div className="flex justify-end mt-1 items-center gap-0.5">
                                             {message.status === 'seen' ? (
-                                                <div className="flex -space-x-1"><Check className="w-3 h-3 text-blue-400" /><Check className="w-3 h-3 text-blue-400" /></div>
+                                                <div className="flex -space-x-1">
+                                                    <Check className="w-3 h-3 text-blue-400" />
+                                                    <Check className="w-3 h-3 text-blue-400" />
+                                                </div>
+                                            ) : message.status === 'delivered' ? (
+                                                <div className="flex -space-x-1">
+                                                    <Check className="w-3 h-3 text-gray-400" />
+                                                    <Check className="w-3 h-3 text-gray-400" />
+                                                </div>
                                             ) : (
-                                                <Check className={`w-3 h-3 ${message.status === 'delivered' ? 'text-gray-400' : 'text-gray-400/50'}`} />
+                                                <Check className="w-3 h-3 text-gray-400/50" />
                                             )}
                                         </div>
                                     )}

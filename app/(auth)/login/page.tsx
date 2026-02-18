@@ -45,6 +45,12 @@ export default function LoginPage() {
             setError(authError.message)
             setLoading(false)
         } else if (data.user) {
+            if (!data.user.email_confirmed_at) {
+                setError('Please verify your email before logging in.')
+                await supabase.auth.signOut()
+                setLoading(false)
+                return
+            }
             router.push('/chat')
             router.refresh()
         }

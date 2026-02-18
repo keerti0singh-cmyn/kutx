@@ -120,10 +120,13 @@ export default function SignupPage() {
         }
 
         if (authData.user) {
-            // Update the auto-generated profile with the chosen username
+            // Update the auto-generated profile with the chosen username and email
             const { error: profileError } = await supabase
                 .from('profiles')
-                .update({ username })
+                .update({
+                    username,
+                    email: email // Ensure email is saved in profiles for username-based login
+                })
                 .eq('user_id', authData.user.id)
 
             if (profileError) {
@@ -132,8 +135,11 @@ export default function SignupPage() {
                 return
             }
 
-            router.push('/chat')
-            router.refresh()
+            // Show success message and don't redirect
+            setError(null)
+            setLoading(false)
+            alert('Account created! Please check your email to verify your account before logging in.')
+            router.push('/login')
         }
     }
 
